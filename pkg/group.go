@@ -1,20 +1,20 @@
 package pkg
 
 type Group struct {
-    AddMember   chan *Client
-    RemoveMember chan *Client
+    AddMember   chan *Member
+    RemoveMember chan *Member
     BroadcastMessage  chan string
 	DM         chan Chat
-	Members    map[string]*Client
+	Members    map[string]*Member
 }
 
 func NewGroup() *Group {
     return &Group{
-        AddMember:   make(chan *Client),
-        RemoveMember: make(chan *Client),
+        AddMember:   make(chan *Member),
+        RemoveMember: make(chan *Member),
         BroadcastMessage:  make(chan string),
 		DM:         make(chan Chat),
-		Members:    make(map[string]*Client),
+		Members:    make(map[string]*Member),
     }
 }
 
