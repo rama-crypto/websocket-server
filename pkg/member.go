@@ -93,6 +93,7 @@ func (member *Member) Activate() {
     for member.IsActive {
 		select {
 		case <- ticker.C:
+			log.Printf("Sending scheduled PING to member %s", member.ID)
 			err := member.Connection.WriteMessage(websocket.PingMessage, []byte{})
 			if err != nil {
 				log.Printf("Failed to send ping to member %s with error %v", member.ID, err)
