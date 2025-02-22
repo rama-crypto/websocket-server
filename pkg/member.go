@@ -5,6 +5,7 @@ import (
 	"time"
 	"bytes"
 	"encoding/binary"
+	"encoding/base64"
 
 	"github.com/gorilla/websocket"
 )
@@ -17,10 +18,10 @@ import (
 // Test DM and test broadcase
 
 
-const PING_INTERVAL int = 5
-const TIME_OUT_INTERVAL int = 20000 // this is the time we will wait for client to send us messages before trying to gracefully shutdown the connection
-const READ_DEADLINE int = 10 // this will set a read timeout on the ReadMessage so that we break out of the read message blocking call 
-const SOCKET_COOLDOWN_PERIOD int = 20 // use time.Sleep in order for read to timeout and then we can close the TCP connection
+const PING_INTERVAL int = 15 // in seconds regularly ping members 
+const TIME_OUT_INTERVAL int = 240 // in seconds this is the time we will wait for client to send us messages before trying to gracefully shutdown the connection
+const READ_DEADLINE int = 10 // in millseconds this will set a read timeout on the ReadMessage so that we break out of the read message blocking call 
+const SOCKET_COOLDOWN_PERIOD int = 20 // in milliseconds use time.Sleep in order for read to timeout and then we can close the TCP connection
 
 type Member struct {
 	ID string
@@ -90,7 +91,7 @@ func (member *Member) Activate() {
 	ticker := time.NewTicker(time.Duration(PING_INTERVAL) * time.Second)
 	defer ticker.Stop()
 
-	timeoutChan := time.After(time.Duration(TIME_OUT_INTERVAL) * time.Millisecond) 
+	timeoutChan := time.After(time.Duration(TIME_OUT_INTERVAL) * time.Second) 
 
     for member.IsActive {
 		select {
@@ -122,13 +123,18 @@ func (member *Member) Activate() {
 				log.Printf("Recieved pong from member %s", member.ID)
 			case websocket.BinaryMessage:
 				var chat Chat
-				reader := bytes.NewReader([]byte(message.Body))
-				err := binary.Read(reader, binary.LittleEndian, &chat)
+				decodedString, err := base64.StdEncoding.DecodeString(string(message.Body))
 				if err != nil {
-					log.Printf("Error reading binary data by Member %s and the error is %v", member.ID, err)
-					return
+					log.Printf("Error decoding base64 string: %v", err)
+    			} else {
+					log.Printf("The base64 decoded string is %s", decodedString)
+					reader := bytes.NewReader(decodedString)
+					err = binary.Read(reader, binary.LittleEndian, &chat)
+					if err != nil {
+						log.Printf("Error reading binary data by Member %s and the error is %v", member.ID, err)
+					}
+					log.Printf("Recived a binary message from the Member %s with data %v", member.ID, chat)
 				}
-				log.Printf("Recived a binary message from the Member %s with data %v", member.ID, chat)
 			case websocket.TextMessage:
 				text := string(message.Body)
 				log.Printf("Recived a TEXT message %s from the client with ID %s to broadcast", text, member.ID)
