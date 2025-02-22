@@ -9,6 +9,14 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+
+// test cases
+// Test whether the server can maintain multiple connections or not
+// Test whether we recieve Ping message after every second from server or not
+// Test if an inactive client tries to send the connection is it able to
+// Test DM and test broadcase
+
+
 const PING_INTERVAL int = 2
 const TIME_OUT_INTERVAL int = 20000 // this is the time we will wait for client to send us messages before trying to gracefully shutdown the connection
 const READ_DEADLINE int = 10 // this will set a read timeout on the ReadMessage so that we break out of the read message blocking call 
