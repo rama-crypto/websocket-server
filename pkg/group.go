@@ -30,7 +30,9 @@ func (group *Group) buildAndSendWelcomeMessage(member *Member) {
 	welcomeMessage.WriteString(" IDs of the other members [")
 	var list []string
 	for id := range group.Members {
-		list = append(list, id)
+		if id != member.ID {
+			list = append(list, id)
+		}
 	}
 	welcomeMessage.WriteString(strings.Join(list, ", "));
 	welcomeMessage.WriteString("]")
@@ -41,6 +43,17 @@ func (group *Group) buildAndSendWelcomeMessage(member *Member) {
 }
 
 func (group *Group) Create() {
+	defer func() {
+		for _, member := range group.Members {
+			if member.IsActive {
+				err := member.GracefulClose()
+				if err != nil {
+					log.Printf("Error while closing connection to Member %s when exiting the group", member.ID)
+				}
+			}
+		}
+	}()
+
 	for {
 		// select helps to synchronise threads such that at any single only one of them is operating on the common data structure which is members
 		select {

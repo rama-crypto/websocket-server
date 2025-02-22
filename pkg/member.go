@@ -17,10 +17,10 @@ import (
 // Test DM and test broadcase
 
 
-const PING_INTERVAL int = 2
+const PING_INTERVAL int = 5
 const TIME_OUT_INTERVAL int = 20000 // this is the time we will wait for client to send us messages before trying to gracefully shutdown the connection
 const READ_DEADLINE int = 10 // this will set a read timeout on the ReadMessage so that we break out of the read message blocking call 
-const SOCKET_COOLDOWN_PERIOD int = 100 // use time.Sleep in order for read to timeout and then we can close the TCP connection
+const SOCKET_COOLDOWN_PERIOD int = 20 // use time.Sleep in order for read to timeout and then we can close the TCP connection
 
 type Member struct {
 	ID string
@@ -38,11 +38,12 @@ type Chat struct {
 	ID string `json:"id"`
 	Message string `json:"message"`
 }
- 
+
+
 func (member *Member) GracefulClose() error {
 	member.Group.RemoveMember <- member
 	member.IsActive = false
-	deadline := time.Now().Add(time.Minute)  
+	deadline := time.Now().Add(time.Duration(READ_DEADLINE) * time.Millisecond)  
     err := member.Connection.WriteControl(  
         websocket.CloseMessage,  
         websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),  
@@ -70,12 +71,13 @@ func (member *Member) ReadMessage(channel chan<- Message) {
 		messageType, body, err := member.Connection.ReadMessage()
 		if err != nil {
 			if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+				log.Printf("Stopping reading from member with id %s as we got close error %v", member.ID, err)
 				return
 			}
-
-			log.Printf("Error while reading message from connection with ID %s. Exiting the program. %v \n", member.ID, err)
+			log.Printf("Error while reading message from connection with ID %s %v \n", member.ID, err)
 			return
 		}
+
 		message := Message{messageType, string(body)}
 		channel <- message
 	}
@@ -84,38 +86,70 @@ func (member *Member) ReadMessage(channel chan<- Message) {
 func (member *Member) Activate() {
 	messageChan := make(chan Message)
 	go member.ReadMessage(messageChan)
+
+	ticker := time.NewTicker(time.Duration(PING_INTERVAL) * time.Second)
+    defer ticker.Stop()
+
+	go func() {
+		// send PINGs at regular intervals
+		for range ticker.C {
+			if !member.IsActive { break }
+			err := member.Connection.WriteMessage(websocket.PingMessage, []byte{})
+			if err != nil {
+				log.Println("Failed to send ping:", err)
+			}
+		}
+	}()
+
+
     for member.IsActive {
 		select {
 		case message := <-messageChan:
 			log.Printf("The message type recieved from Member %s is %d", member.ID, message.MessageType)
 			// handle messages
 			switch message.MessageType {
+			case 8:
+				log.Printf("Shutting down connection with Member %s as requested", member.ID)
+				err := member.GracefulClose()
+				if err != nil {
+					log.Printf("Error occurred while closing the websocket connection %v with member %s", err, member.ID)
+				}
+			case 9:
+				log.Printf("Recieved ping from member %s", member.ID)
+				err := member.Connection.WriteMessage(websocket.PongMessage, []byte{})
+				if err != nil {
+					log.Printf("Failed to send pong to member %s and the error is %v", member.ID, err)
+				}
+			case 10:
+				log.Printf("Recieved pong from member %s", member.ID)
+				err := member.Connection.WriteMessage(websocket.PongMessage, []byte{})
+				if err != nil {
+					log.Printf("Failed to send pong to member %s and the error is %v", member.ID, err)
+				}
 			case 2:
 				var chat Chat
 				reader := bytes.NewReader([]byte(message.Body))
 				err := binary.Read(reader, binary.LittleEndian, &chat)
 				if err != nil {
-					log.Printf("Error reading binary data by Member %s and the error is %v. \n", member.ID, err)
+					log.Printf("Error reading binary data by Member %s and the error is %v", member.ID, err)
 					return
 				}
-				log.Printf("Recived a binary message from the Member %s with data %v. \n", member.ID, chat)
+				log.Printf("Recived a binary message from the Member %s with data %v", member.ID, chat)
 			case 1:
 				text := string(message.Body)
-				log.Printf("Recived a TEXT message %s from the client with ID %s. Broadcasting it to the other members of the group.", text, member.ID)
+				log.Printf("Recived a TEXT message %s from the client with ID %s to broadcast", text, member.ID)
 				member.Group.BroadcastMessage <- text
 			default:
-				log.Printf("Recieved unknown message type from the client with ID %s. Closing the connection. \n", member.ID)
-				return 
+				log.Printf("Closing the connection as recieved unknown message type from the client with ID %s", member.ID)
 			}
 		// handle time out
 		case <-time.After(time.Duration(TIME_OUT_INTERVAL) * time.Millisecond):
 			log.Printf("Shutting down connection with Member %s due to inactivity.", member.ID)
 			err := member.GracefulClose()
 			if err != nil {
-				log.Printf("Error occurred while closing the websocket connection %v", err)
+				log.Printf("Error occurred while closing the websocket connection %v with member %s", err, member.ID)
 			}
 		}
-		time.Sleep(time.Duration(PING_INTERVAL) * time.Second)
     }
 }
 

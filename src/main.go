@@ -10,11 +10,11 @@ import (
 	"websocket-server.com/pkg"
 )
 
-func serverHome(w http.ResponseWriter, _ *http.Request) {
+func ServerHome(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprint(w, "This is home!")
 }
 
-func serverPingPong(group *pkg.Group, w http.ResponseWriter, r *http.Request) {
+func ServerPingPong(group *pkg.Group, w http.ResponseWriter, r *http.Request) {
     upgrader := websocket.Upgrader{}
 	conn, err := upgrader.Upgrade(w, r, nil)
     if err != nil {
@@ -38,18 +38,18 @@ func initRoutes() {
     go group.Create()
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serverHome(w, r)
+		ServerHome(w, r)
 	})
 
     http.HandleFunc("/pingpong", func(w http.ResponseWriter, r *http.Request) {
-        serverPingPong(group, w, r)
+        ServerPingPong(group, w, r)
     })
 }
 
 func main() {
     initRoutes()
 	log.Println("Starting server on http://localhost:8080")
-    http.ListenAndServe(":8080", nil)
+    log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 
