@@ -108,25 +108,25 @@ func (member *Member) Activate() {
 			log.Printf("The message type recieved from Member %s is %d", member.ID, message.MessageType)
 			// handle messages
 			switch message.MessageType {
-			case 8:
+			case websocket.CloseMessage:
 				log.Printf("Shutting down connection with Member %s as requested", member.ID)
 				err := member.GracefulClose()
 				if err != nil {
 					log.Printf("Error occurred while closing the websocket connection %v with member %s", err, member.ID)
 				}
-			case 9:
+			case websocket.PingMessage:
 				log.Printf("Recieved ping from member %s", member.ID)
 				err := member.Connection.WriteMessage(websocket.PongMessage, []byte{})
 				if err != nil {
 					log.Printf("Failed to send pong to member %s and the error is %v", member.ID, err)
 				}
-			case 10:
+			case websocket.PongMessage:
 				log.Printf("Recieved pong from member %s", member.ID)
-				err := member.Connection.WriteMessage(websocket.PongMessage, []byte{})
+				err := member.Connection.WriteMessage(websocket.PingMessage, []byte{})
 				if err != nil {
 					log.Printf("Failed to send pong to member %s and the error is %v", member.ID, err)
 				}
-			case 2:
+			case websocket.BinaryMessage:
 				var chat Chat
 				reader := bytes.NewReader([]byte(message.Body))
 				err := binary.Read(reader, binary.LittleEndian, &chat)
@@ -135,7 +135,7 @@ func (member *Member) Activate() {
 					return
 				}
 				log.Printf("Recived a binary message from the Member %s with data %v", member.ID, chat)
-			case 1:
+			case websocket.TextMessage:
 				text := string(message.Body)
 				log.Printf("Recived a TEXT message %s from the client with ID %s to broadcast", text, member.ID)
 				member.Group.BroadcastMessage <- text
