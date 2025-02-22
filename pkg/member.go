@@ -95,7 +95,7 @@ func (member *Member) Activate() {
 		case <- ticker.C:
 			err := member.Connection.WriteMessage(websocket.PingMessage, []byte{})
 			if err != nil {
-				log.Println("Failed to send ping:", err)
+				log.Printf("Failed to send ping to member %s with error %v", member.ID, err)
 			}
 		case message := <-messageChan:
 			log.Printf("The message type recieved from Member %s is %d", member.ID, message.MessageType)
