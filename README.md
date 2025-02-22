@@ -16,6 +16,12 @@ A Golang WebSocket server designed to handle multiple concurrent connections.
 2. Run the main_test file: go test main_test.go -v (-v is important as it allows to see what actually is happening at the server side)
 
 
+## Future enhancements
+1. Support multiple groups
+2. Give application constants via command line on startup or introduce a config file 
+3. Better error handling 
+4. Stress testing to check how many websockets can be handled concurrently without affecting the performance too much
+
 ## Wierd Things
 
 1. https://github.com/gorilla/websocket/issues/744 - ReadMessage doesn't forward control messages
