@@ -91,6 +91,31 @@ func (member *Member) Activate() {
 
 	timeoutChan := time.After(time.Duration(TIME_OUT_INTERVAL) * time.Second) 
 
+	member.Connection.SetPingHandler(func(appData string) error {
+		timeoutChan = time.After(time.Duration(TIME_OUT_INTERVAL) * time.Second)
+		log.Printf("Recieved ping from member %s", member.ID)
+		err := member.Connection.WriteMessage(websocket.PongMessage, []byte{})
+		if err != nil {
+			log.Printf("Failed to send pong to member %s and the error is %v", member.ID, err)
+		}
+		return err
+	})
+
+	member.Connection.SetPongHandler(func(appData string) error {
+		timeoutChan = time.After(time.Duration(TIME_OUT_INTERVAL) * time.Second)
+		log.Printf("Recieved pong from member %s", member.ID)
+		return nil
+	})
+
+	member.Connection.SetCloseHandler(func(code int, text string) error {
+		log.Printf("Shutting down connection with Member %s as requested", member.ID)
+		err := member.GracefulClose()
+		if err != nil {
+			log.Printf("Error occurred while closing the websocket connection %v with member %s", err, member.ID)
+		}
+		return err
+	})
+
     for member.IsActive {
 		select {
 		case <- ticker.C:
@@ -105,30 +130,19 @@ func (member *Member) Activate() {
 
 			// handle messages
 			switch message.MessageType {
-			case websocket.CloseMessage:
-				log.Printf("Shutting down connection with Member %s as requested", member.ID)
-				err := member.GracefulClose()
-				if err != nil {
-					log.Printf("Error occurred while closing the websocket connection %v with member %s", err, member.ID)
-				}
-			case websocket.PingMessage:
-				log.Printf("Recieved ping from member %s", member.ID)
-				err := member.Connection.WriteMessage(websocket.PongMessage, []byte{})
-				if err != nil {
-					log.Printf("Failed to send pong to member %s and the error is %v", member.ID, err)
-				}
-			case websocket.PongMessage:
-				log.Printf("Recieved pong from member %s", member.ID)
 			case websocket.BinaryMessage:
 				log.Printf("Skipping the binary message recieved from member %s as it is not supported", member.ID)
 			case websocket.TextMessage:
 				var chat Chat
 				json.Unmarshal([]byte(message.Body), &chat)
 				if chat.ID == "-1" {
-					log.Printf("Recived a TEXT message %s from the client with ID %s to broadcast", chat.Message, member.ID)
+					log.Printf("Recived a TEXT message %s from the member with ID %s to broadcast", chat.Message, member.ID)
 					member.Group.BroadcastMessage <- chat.Message
+				} else if chat.ID == "0" {
+					log.Printf("Recived a TEXT message %s from the member with ID %s to send back the member's ID", chat.Message, member.ID)
+					member.Connection.WriteMessage(1, []byte(member.ID))
 				} else {
-					log.Printf("Recived a TEXT message %s from the client with ID %s to DM to member %s", chat.Message, member.ID, chat.ID)
+					log.Printf("Recived a TEXT message %s from the member with ID %s to DM to member %s", chat.Message, member.ID, chat.ID)
 					member.Group.DM <- chat
 				}
 			default:

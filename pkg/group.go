@@ -24,7 +24,7 @@ func NewGroup() *Group {
 }
 
 func (group *Group) buildAndSendWelcomeMessage(member *Member) {
-	log.Printf("Building welcome message for Memeber %s", member.ID)
+	log.Printf("Building welcome message for Member %s", member.ID)
 	var welcomeMessage strings.Builder
 	welcomeMessage.WriteString("Welcome!")
 	welcomeMessage.WriteString(" IDs of the other members [")
