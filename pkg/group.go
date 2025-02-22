@@ -5,6 +5,16 @@ import (
 	"strings"
 )
 
+
+// A group can have multiple members. Every member can be thought of a websocket connection.
+// There are four functions that we can perform on the group of members. That is:
+// 1. Add a member: Which basically registers a new member 
+// 2. Remove a member: Which to unregister or delete an existing member from the group
+// 3. Broadcast a message in the group: Which is to broadcast a text message to all the members of the group
+// 4. Direct message (DM) an other member: Which allows one member to DM other member
+// 
+// Since, the Members data structure in a group can be operated by multiple members and multiple functions by the same member.
+// It is synchronized using 'select' and 'channels' in Go which prevent race conditions. 
 type Group struct {
     AddMember   chan *Member
     RemoveMember chan *Member

@@ -21,6 +21,10 @@ const TIME_OUT_INTERVAL int = 240 // in seconds this is the time we will wait fo
 const READ_DEADLINE int = 10 // in millseconds this will set a read timeout on the ReadMessage so that we break out of the read message blocking call 
 const SOCKET_COOLDOWN_PERIOD int = 20 // in milliseconds use time.Sleep in order for read to timeout and then we can close the TCP connection
 
+
+// A Member can be thought of a websocket connection. It also contains ID (unique identified to identify the member), the pointer to 
+// corresponding websocket connection and pointer to the group that a particular member belong to. A group is initialized at the application
+// start. So currently this application supports a single group. 
 type Member struct {
 	ID string
 	Connection *websocket.Conn
@@ -28,11 +32,15 @@ type Member struct {
 	IsActive bool
 }
 
-type Message struct {
+// This is package private intermediate object.
+type message struct {
 	MessageType int 
 	Body string
 }
 
+// The Chat contains ID of the member to which we need to send the message to normally. But there are two special cases:
+// 1. When ID is '0' the server returns the ID of the member which is trying to send.
+// 2. When ID is '-1' the server treats it as a request to broadcase the message to all the members of the group.
 type Chat struct {
 	ID string `json:"id"`
 	Message string `json:"message"`
@@ -65,7 +73,7 @@ func (member *Member) GracefulClose() error {
     return nil  
 }
 
-func (member *Member) readMessage(channel chan<- Message) {
+func (member *Member) readMessage(channel chan<- message) {
 	for {
 		messageType, body, err := member.Connection.ReadMessage()
 		if err != nil {
@@ -77,13 +85,13 @@ func (member *Member) readMessage(channel chan<- Message) {
 			return
 		}
 
-		message := Message{messageType, string(body)}
+		message := message{messageType, string(body)}
 		channel <- message
 	}
 }
 
 func (member *Member) Activate() {
-	messageChan := make(chan Message)
+	messageChan := make(chan message)
 	go member.readMessage(messageChan)
 
 	ticker := time.NewTicker(time.Duration(PING_INTERVAL) * time.Second)
