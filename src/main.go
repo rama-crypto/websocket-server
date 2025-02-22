@@ -10,7 +10,7 @@ import (
 	"websocket-server.com/pkg"
 )
 
-func serverHome(w http.ResponseWriter, r *http.Request) {
+func serverHome(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprint(w, "This is home!")
 }
 
