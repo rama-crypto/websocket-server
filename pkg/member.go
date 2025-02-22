@@ -103,7 +103,7 @@ func (member *Member) Activate() {
 			}
 		case message := <-messageChan:
 			log.Printf("The message type recieved from Member %s is of type %d so resetting timeout", member.ID, message.MessageType)
-			timeoutChan = time.After(time.Duration(TIME_OUT_INTERVAL) * time.Millisecond)
+			timeoutChan = time.After(time.Duration(TIME_OUT_INTERVAL) * time.Second)
 
 			// handle messages
 			switch message.MessageType {
