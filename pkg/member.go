@@ -88,7 +88,9 @@ func (member *Member) Activate() {
 	go member.ReadMessage(messageChan)
 
 	ticker := time.NewTicker(time.Duration(PING_INTERVAL) * time.Second)
-    defer ticker.Stop()
+	defer ticker.Stop()
+
+	timeoutChan := time.After(time.Duration(TIME_OUT_INTERVAL) * time.Millisecond) 
 
     for member.IsActive {
 		select {
@@ -99,7 +101,9 @@ func (member *Member) Activate() {
 				log.Printf("Failed to send ping to member %s with error %v", member.ID, err)
 			}
 		case message := <-messageChan:
-			log.Printf("The message type recieved from Member %s is %d", member.ID, message.MessageType)
+			log.Printf("The message type recieved from Member %s is %d so resetting timeout", member.ID, message.MessageType)
+			timeoutChan = time.After(time.Duration(TIME_OUT_INTERVAL) * time.Millisecond)
+
 			// handle messages
 			switch message.MessageType {
 			case websocket.CloseMessage:
@@ -133,7 +137,7 @@ func (member *Member) Activate() {
 				log.Printf("Closing the connection as recieved unknown message type from the client with ID %s", member.ID)
 			}
 		// handle time out
-		case <-time.After(time.Duration(TIME_OUT_INTERVAL) * time.Millisecond):
+		case <-timeoutChan:
 			log.Printf("Shutting down connection with Member %s due to inactivity.", member.ID)
 			err := member.GracefulClose()
 			if err != nil {
