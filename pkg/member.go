@@ -101,7 +101,7 @@ func (member *Member) Activate() {
 				log.Printf("Failed to send ping to member %s with error %v", member.ID, err)
 			}
 		case message := <-messageChan:
-			log.Printf("The message type recieved from Member %s is %d so resetting timeout", member.ID, message.MessageType)
+			log.Printf("The message type recieved from Member %s is of type %d so resetting timeout", member.ID, message.MessageType)
 			timeoutChan = time.After(time.Duration(TIME_OUT_INTERVAL) * time.Millisecond)
 
 			// handle messages
