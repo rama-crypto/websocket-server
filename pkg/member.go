@@ -3,9 +3,7 @@ package pkg
 import (
 	"log"
 	"time"
-	"bytes"
-	"encoding/binary"
-	"encoding/base64"
+	"encoding/json"
 
 	"github.com/gorilla/websocket"
 )
@@ -67,7 +65,7 @@ func (member *Member) GracefulClose() error {
     return nil  
 }
 
-func (member *Member) ReadMessage(channel chan<- Message) {
+func (member *Member) readMessage(channel chan<- Message) {
 	for {
 		messageType, body, err := member.Connection.ReadMessage()
 		if err != nil {
@@ -86,7 +84,7 @@ func (member *Member) ReadMessage(channel chan<- Message) {
 
 func (member *Member) Activate() {
 	messageChan := make(chan Message)
-	go member.ReadMessage(messageChan)
+	go member.readMessage(messageChan)
 
 	ticker := time.NewTicker(time.Duration(PING_INTERVAL) * time.Second)
 	defer ticker.Stop()
@@ -122,23 +120,17 @@ func (member *Member) Activate() {
 			case websocket.PongMessage:
 				log.Printf("Recieved pong from member %s", member.ID)
 			case websocket.BinaryMessage:
-				var chat Chat
-				decodedString, err := base64.StdEncoding.DecodeString(string(message.Body))
-				if err != nil {
-					log.Printf("Error decoding base64 string: %v", err)
-    			} else {
-					log.Printf("The base64 decoded string is %s", decodedString)
-					reader := bytes.NewReader(decodedString)
-					err = binary.Read(reader, binary.LittleEndian, &chat)
-					if err != nil {
-						log.Printf("Error reading binary data by Member %s and the error is %v", member.ID, err)
-					}
-					log.Printf("Recived a binary message from the Member %s with data %v", member.ID, chat)
-				}
+				log.Printf("Skipping the binary message recieved from member %s as it is not supported", member.ID)
 			case websocket.TextMessage:
-				text := string(message.Body)
-				log.Printf("Recived a TEXT message %s from the client with ID %s to broadcast", text, member.ID)
-				member.Group.BroadcastMessage <- text
+				var chat Chat
+				json.Unmarshal([]byte(message.Body), &chat)
+				if chat.ID == "-1" {
+					log.Printf("Recived a TEXT message %s from the client with ID %s to broadcast", chat.Message, member.ID)
+					member.Group.BroadcastMessage <- chat.Message
+				} else {
+					log.Printf("Recived a TEXT message %s from the client with ID %s to DM to member %s", chat.Message, member.ID, chat.ID)
+					member.Group.DM <- chat
+				}
 			default:
 				log.Printf("Closing the connection as recieved unknown message type from the client with ID %s", member.ID)
 			}
