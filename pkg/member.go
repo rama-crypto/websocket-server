@@ -90,20 +90,13 @@ func (member *Member) Activate() {
 	ticker := time.NewTicker(time.Duration(PING_INTERVAL) * time.Second)
     defer ticker.Stop()
 
-	go func() {
-		// send PINGs at regular intervals
-		for range ticker.C {
-			if !member.IsActive { break }
+    for member.IsActive {
+		select {
+		case <- ticker.C:
 			err := member.Connection.WriteMessage(websocket.PingMessage, []byte{})
 			if err != nil {
 				log.Println("Failed to send ping:", err)
 			}
-		}
-	}()
-
-
-    for member.IsActive {
-		select {
 		case message := <-messageChan:
 			log.Printf("The message type recieved from Member %s is %d", member.ID, message.MessageType)
 			// handle messages
@@ -122,10 +115,6 @@ func (member *Member) Activate() {
 				}
 			case websocket.PongMessage:
 				log.Printf("Recieved pong from member %s", member.ID)
-				err := member.Connection.WriteMessage(websocket.PingMessage, []byte{})
-				if err != nil {
-					log.Printf("Failed to send pong to member %s and the error is %v", member.ID, err)
-				}
 			case websocket.BinaryMessage:
 				var chat Chat
 				reader := bytes.NewReader([]byte(message.Body))
