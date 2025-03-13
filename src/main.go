@@ -6,7 +6,6 @@ import (
 	"websocket-server.com/pkg"
 )
 
-
 func initRoutes() {
     group := pkg.NewGroup()
     go group.Create()
@@ -18,6 +17,10 @@ func initRoutes() {
     http.HandleFunc("/pingpong", func(w http.ResponseWriter, r *http.Request) {
         pkg.ServerPingPong(group, w, r)
     })
+
+	http.HandleFunc("/getMemberIds", func(w http.ResponseWriter, r *http.Request) {
+		pkg.ServerMemberIds(group, w, r)
+	})
 }
 
 func main() {
